@@ -1,45 +1,38 @@
 # -*- coding: utf-8 -*-
-
-import numpy as np
 import math
 import random
 
-#definition
-ALPHA=0.001 #step size
-BETA_1=0.9 #exponential decay rates for the moment estimates
-BETA_2=0.999 #exponential decay rates for the moment estimates
-THETA_0=random.random() #initial parameter vector
-EPS=1e-08 #epsilon
-EPOCH=10000
-NINF=-10**10
+#定義
+ALPHA=0.001 #ステップサイズ
+BETA_1=0.9 #一次モーメントの指数減衰率
+BETA_2=0.999 #二次モーメントの指数減衰率
+THETA_0=random.random() #最適化するθの初期値
+EPS=1e-08 #イプシロン
+EPOCH=1000 #エポック数
 
+#初期化------
+m_0=0 #一次モーメント
+m_t_old=m_0 #１時刻前の一次モーメント
 
-#initialize
-m_0=0 #1st moment 
-m_t_old=m_0
+v_0=0 #二次モーメント
+v_t_old=v_0 #１時刻前の二次モーメント
 
-v_0=0 #2nd moment
-v_t_old=v_0
+t=0 #タイムステップ
 
-t=0 #time step
-
-#theta
+#θ
 theta_t=THETA_0
 theta_t_old=THETA_0
 
 
-
-#放物線
+#関数の定義------
+#y=x^θ
 def parabola(x, theta):
     result=pow(x,theta)
     return result
 
-def dx_dtheta(x,theta):
-    #if x<0:
-    #    result=NINF#*pow(x,theta)
-    #else:
+#上記の微分
+def dy_dtheta(x,theta):
     result=math.log(x+EPS)*pow(x,theta)
-
     return result
 
 #2乗誤差
@@ -48,73 +41,73 @@ def error_func(x, y):
     result=pow(subs, 2)
     return result
 
-def df_dx(x, y):
-    result=2*(x-y)
-
+#２乗誤差の微分
+def df_dy(f, y):
+    result=2*(f-y)
     return result
 
+#可視化用------
+gts=[]
+mts=[]
+vts=[]
+mthats=[]
+vthats=[]
+thetas=[]
+losses=[]
 
-#define dataset
+#データセット------
 DS_X=[]
 DS_y=[]
 NUM_DATA=1000
-#for d in range(-NUM_DATA//2, NUM_DATA//2):
-for d in range( NUM_DATA):
-    #print(d,flush=True)
+# yとして、x^2 を使う。
+# 0<= x < 100
+for d in range(NUM_DATA):
     x=d*0.1
     DS_X.append(x)
-    DS_y.append(parabola(x, 2)) # get d^2 as y
+    DS_y.append(parabola(x, 2)) 
 
-
-
-# while theta not converged do
+# 実行------
+# 収束までではなくエポック数だけ回す
 while  t<EPOCH :
 
-    # get data
+    #データはランダムに送る
     idx=random.randint(0,NUM_DATA-1)
     x=DS_X[idx]
     y=DS_y[idx]
 
-    #increase time 
+    #時刻増やす 
     t=t+1
-    #get gradients w.r.t stochastic objective at timestep t
 
-    print("x",x)
-    print("y",y)
-    print("theta_t_old",theta_t_old)
-    #g_t=2*(parabola(x, theta_t_old)-y)*theta_t_old*pow(x,theta_t_old-1)
-    #g_t=2*(parabola(x, theta_t_old)-y)*math.log(x)*pow(x,theta_t_old)
-    print("loss:",error_func(parabola(x,theta_t_old),y))
-    g_t=df_dx(parabola(x,theta_t_old),y)*dx_dtheta(x,theta_t_old)
+    #目的関数の勾配g_t
+    y_prime=parabola(x,theta_t_old)
+    g_t=df_dy(y_prime,y)*dy_dtheta(x,theta_t_old)
+    gts.append(g_t)
 
+    #誤差
+    losses.append(error_func(y_prime, y))
 
-    print("pow(x,theta-1)", pow(x,theta_t_old-1))
-    print("g_t", g_t)
-    print("t:",t,flush=True)
-
-    #update biased first moment estimate
+    # 一次モーメントの更新
+    # beta_1が大きいと過去の値が支配的になる
     m_t=BETA_1*m_t_old + (1- BETA_1)* g_t 
-    #update biased second moment estimate
+    mts.append(m_t)
+    # 二次モーメントの更新
     v_t=BETA_2*v_t_old + (1-BETA_2) * pow(g_t,2)
-    print("v_t",v_t)
-    print("v_t_old", v_t_old)
+    vts.append(v_t)
 
-    #compute bias corrected first moment estimate
+
+    #一次モーメントのバイアス補正
     m_t_hat=m_t / (1-pow(BETA_1, t))
-    #compute bias corrected second moment estimate
+    mthats.append(m_t_hat)
+    #二次モーメントのバイアス補正
     v_t_hat=v_t / (1-pow(BETA_2, t))
+    vthats.append(v_t_hat)
 
-    #update parameters
-    print(EPS)
-    print(v_t_hat)
-    print(math.sqrt(v_t_hat + EPS))
+    #パラメータθを更新
     theta_t=theta_t_old -ALPHA * m_t_hat / (math.sqrt(v_t_hat + EPS)) 
-    #prepare for the next iteration
+    #古いθとして保持
     theta_t_old=theta_t
+    thetas.append(theta_t)
 
-    print("theta_t:", theta_t,flush=True)
 
-
-#show the resulting parameter
-print("result:",flush=True)
-print(theta_t,flush=True)
+#結果
+print("result:",theta_t)
